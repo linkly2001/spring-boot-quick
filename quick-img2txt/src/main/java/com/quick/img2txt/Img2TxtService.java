@@ -19,7 +19,7 @@ import java.io.IOException;
 public class Img2TxtService {
 
     public static String toChar = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/|()1{}[]?-_+~<>i!lI;:, ^`'. ";
-    public static int width = 150, height = 150; // 大小自己可设置
+    public static int width = 120, height = 120; // 大小自己可设置
 
     @Value("${upload.file.path}")
     private String filePath;
@@ -42,7 +42,13 @@ public class Img2TxtService {
         if(!newFile.exists()){
             newFile.createNewFile();
         }
-        IOUtils.write(bytes,new FileOutputStream(newFile));
+        FileOutputStream fos =null;
+        try {
+            fos = new FileOutputStream(newFile);
+            IOUtils.write(bytes, fos);
+        } finally {
+            if (fos != null) fos.close();
+        }
         return img2txt(newFile);
     }
 
@@ -61,14 +67,22 @@ public class Img2TxtService {
         }
         String outName = file.getAbsolutePath() + ".txt";
         File outFile = new File(outName);
-        IOUtils.write(sb.toString(), new FileOutputStream(outFile));
+        FileOutputStream fos= null;
+        try {
+            fos = new FileOutputStream(outFile);
+            IOUtils.write(sb.toString(), fos);
+        } finally {
+            //close io
+            if (fos != null) fos.close();
+        }
         return outFile;
     }
 
 
     private static char[][] getImageMatrix(BufferedImage img) {
         int w = img.getWidth(), h = img.getHeight();
-        char[][] rst = new char[w][h];
+//        char[][] rst = new char[w][h];
+        char[][] rst = new char[h][w];
         for (int i = 0; i < w; i++)
             for (int j = 0; j < h; j++) {
                 int rgb = img.getRGB(i, j);
@@ -81,15 +95,26 @@ public class Img2TxtService {
                 // 把int gray转换成char
                 int len = toChar.length();
                 int base = 256 / len + 1;
-                int charIdx = gray / base;
+                int charIdx = (gray / base) % len;
+//                rst[j][i] = toChar.charAt(charIdx); // 注意i和j的处理顺序，如果是rst[j][i],图像是逆时针90度打印的，仔细体会下getRGB(i，j)这
                 rst[j][i] = toChar.charAt(charIdx); // 注意i和j的处理顺序，如果是rst[j][i],图像是逆时针90度打印的，仔细体会下getRGB(i，j)这
             }
         return rst;
     }
 
     private static BufferedImage getScaledImg(BufferedImage image) {
-        BufferedImage rst = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
-        rst.getGraphics().drawImage(image, 0, 0, width, height, null);
+        int h=image.getHeight();
+        int w =image.getWidth();
+        double size = (double)h/(double)w;
+        if ((h >= w && h > height)) {
+            h = height;
+            w = (int) (height / size);
+        } else if (h < w && w > width) {
+            w = width;
+            h = (int) (w * size);
+        }
+        BufferedImage rst = new BufferedImage(w, h, BufferedImage.TYPE_3BYTE_BGR);
+        rst.getGraphics().drawImage(image, 0, 0, w, h, null);
         return rst;
     }
 }
